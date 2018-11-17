@@ -5,6 +5,9 @@
 int main()
 {
     u8 code[1024];
+    for(int i = 0; i < 1024; i++){
+        code[i] = 2;
+    }
     {
         char source[4096];
 
@@ -19,14 +22,13 @@ int main()
             source[length] = c;
             length++;
         }
+        fclose(f);
 
         char heap[4096];
 
         void* tree = parse(source, source + length, heap, heap + 4096);
-        //printTree(tree, 0);
         assemble(code, code + 1024, tree);
     }
-    //for(int i = 0; i < 1024; i++)
     execute(code);
     return 0;
 }

@@ -1,3 +1,7 @@
-var x;
-x = 5;
+var xaslkjdflasdj;
+xaslkjdflasdj = 5;
 >>> 8 / 4 / 2;
+var ylkjasdflkjasdf = (6 + 4) * 3 / 5;
+ylkjasdflkjasdf = ylkjasdflkjasdf % 7;
+>>> ylkjasdflkjasdf;
+>>> 5 * 666;

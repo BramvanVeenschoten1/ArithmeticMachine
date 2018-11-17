@@ -33,12 +33,5 @@ void execute(u8* ops){
             case MOD: ptr[-1] %= *ptr;        break;
         }
         ops++;
-        /*
-        putchar('(');
-        for(i32* i = stack; i <= ptr; i++){
-            printf("%d ", *i);
-        }
-        printf(")\n");
-        */
     }
 }

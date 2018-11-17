@@ -73,15 +73,15 @@ typedef struct Assembler {
     u8* code;
     u8* codeEnd;
     u32 stackCounter;
-    Entry table[256];
+    Entry table[TABLE_SIZE];
 } Assembler;
 static void assembleNode(Assembler*,void*);
-static void assembleBinary(Assembler* a, Binary* b, char c){
+static void assembleBinary(Assembler* a, Binary* b){
     assembleNode(a, b->lhs);
     *a->code = PUSH; a->code++;
     a->stackCounter++;
     assembleNode(a, b->rhs);
-    switch(c){
+    switch(b->type){
         case '+': *a->code = ADD; a->code++; break;
         case '-': *a->code = SUB; a->code++; break;
         case '*': *a->code = MUL; a->code++; break;
@@ -122,7 +122,7 @@ static void assembleAssign(Assembler* a, Binary* b){
 static void assembleNumber(Assembler* a, Number* n){
     Word w;
     w.integer = n->value;
-    *a->code = LOAD;         a->code++;
+    *a->code = LOAD;       a->code++;
     *a->code = w.bytes[0]; a->code++;
     *a->code = w.bytes[1]; a->code++;
     *a->code = w.bytes[2]; a->code++;
@@ -161,14 +161,12 @@ static void assembleNode(Assembler* a, void* node){
     if(!node)
         return;
     i8* type = (i8*)node;
-    //putchar(*type);
-    //putchar('\n');
     switch(*type){
         case '+':
         case '-':
         case '*':
         case '/':
-        case '%': return assembleBinary(a, node, *type);
+        case '%': return assembleBinary(a, node);
         case '=': return assembleAssign(a, node);
         case 'i': return assembleIdentifier(a, node);
         case 'd': return assembleDecl(a, node);
@@ -185,6 +183,74 @@ void assemble(u8* code, u8* codeEnd, void* tree){
     a.stackCounter = 0;
     clearTable(a.table);
     assembleNode(&a, tree);
+}
+
+static int evalNode(Entry* table, void* node);
+static int evalBinary(Entry* table, Binary* node){
+    switch(node->type){
+        case '+': return evalNode(table, node->lhs) + evalNode(table, node->rhs);
+        case '-': return evalNode(table, node->lhs) - evalNode(table, node->rhs);
+        case '*': return evalNode(table, node->lhs) * evalNode(table, node->rhs);
+        case '/': return evalNode(table, node->lhs) / evalNode(table, node->rhs);
+        case '%': return evalNode(table, node->lhs) % evalNode(table, node->rhs);
+    }
+    return 0;
+}
+static int evalAssign(Entry* table, Binary* node){
+    Identifier* id = node->lhs;
+    int value = evalNode(table, node->rhs);
+    i32* ptr = (i32*)get(table, id->data, id->length);
+    if(!ptr){
+        printf("Unknown Identifier: ");
+        for(int i = 0; i < id->length; i++)
+            putchar(id->data[i]);
+        putchar('\n');
+        return 0;
+    }
+    set(table, (Entry){id->data, id->length, value});
+    return 0;
+}
+static int evalIdentifier(Entry* table, Identifier* id){
+    i32* ptr = (i32*)get(table, id->data, id->length);
+    if(!ptr){
+        printf("Unknown Identifier: ");
+        for(int i = 0; i < id->length; i++)
+            putchar(id->data[i]);
+        putchar('\n');
+        return 0;
+    }
+    return *ptr;
+}
+static int evalDecl(Entry* table, Binary* decl){
+    Identifier* id = decl->lhs;
+    int value;
+    if(decl->rhs)
+        value = evalNode(table, decl->rhs);
+    set(table, (Entry){id->data, id->length, value});
+    return 0xcafef00d;
+}
+static int evalNode(Entry* table, void* node){
+    char* type = node;
+    switch(*type){
+        case '+':
+        case '-':
+        case '*':
+        case '/':
+        case '%': return evalBinary(table, node);
+        case '=': return evalAssign(table, node);
+        case 'i': return evalIdentifier(table, node);
+        case 'd': return evalDecl(table, node);
+        case 'n': return ((Number*)node)->value;
+        case 'q': return printf("%d\n", evalNode(table, ((Quote*)node)->expr));
+        case 's': return evalNode(table, ((Binary*)node)->lhs), evalNode(table, ((Binary*)node)->rhs);
+    }
+    return 0;
+}
+
+void eval(void* tree){
+    Entry table[TABLE_SIZE];
+    clearTable(table);
+    evalNode(table, tree);
 }
 
 
