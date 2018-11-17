@@ -12,7 +12,7 @@ typedef struct Entry{
     u32 depth;
 } Entry;
 static u8 toHash(char* data, u32 length){
-    u8 result;
+    u8 result = 0;
     for(int i = 0; i < length; i++)
         result += data[i];
     return result;
@@ -27,15 +27,15 @@ static void clearTable(Entry* table){
     for(int i = 0; i < TABLE_SIZE; i++)
         table[i].data = NULL;
 }
-static u8 set(Entry* table, Entry item){
-    u8 hash = toHash(item.data, item.length);
+static u8 set(Entry* table, i8* data, u32 length, u32 depth){
+    u8 hash = toHash(data, length);
     for(u32 i = 0; i < TABLE_SIZE; i++){
         if(table[hash].data == NULL){
-            table[hash] = item;
+            table[hash] = (Entry){data, length, depth};
             return 0;
         }
-        if(item.length == table[hash].length && equals(item.data, table[hash].data, item.length)){
-            table[hash] = item;
+        if(length == table[hash].length && equals(data, table[hash].data, length)){
+            table[hash] = (Entry){data, length, depth};
             return 1;
         }
         hash++;
@@ -116,8 +116,6 @@ static void assembleAssign(Assembler* a, Binary* b){
 
     *a->code = POP; a->code++;
     a->stackCounter--;
-
-
 }
 static void assembleNumber(Assembler* a, Number* n){
     Word w;
@@ -130,7 +128,7 @@ static void assembleNumber(Assembler* a, Number* n){
 }
 static void assembleDecl(Assembler* a, Binary* d){
     Identifier* id = d->lhs;
-    set(a->table, (Entry){id->data, id->length, a->stackCounter});
+    set(a->table, id->data, id->length, a->stackCounter);
 
     assembleNode(a, d->rhs);
     *a->code = PUSH; a->code++;
@@ -183,74 +181,9 @@ void assemble(u8* code, u8* codeEnd, void* tree){
     a.stackCounter = 0;
     clearTable(a.table);
     assembleNode(&a, tree);
+    printf("sizeof(Code) = %d\n", a.code - code);
 }
 
-static int evalNode(Entry* table, void* node);
-static int evalBinary(Entry* table, Binary* node){
-    switch(node->type){
-        case '+': return evalNode(table, node->lhs) + evalNode(table, node->rhs);
-        case '-': return evalNode(table, node->lhs) - evalNode(table, node->rhs);
-        case '*': return evalNode(table, node->lhs) * evalNode(table, node->rhs);
-        case '/': return evalNode(table, node->lhs) / evalNode(table, node->rhs);
-        case '%': return evalNode(table, node->lhs) % evalNode(table, node->rhs);
-    }
-    return 0;
-}
-static int evalAssign(Entry* table, Binary* node){
-    Identifier* id = node->lhs;
-    int value = evalNode(table, node->rhs);
-    i32* ptr = (i32*)get(table, id->data, id->length);
-    if(!ptr){
-        printf("Unknown Identifier: ");
-        for(int i = 0; i < id->length; i++)
-            putchar(id->data[i]);
-        putchar('\n');
-        return 0;
-    }
-    set(table, (Entry){id->data, id->length, value});
-    return 0;
-}
-static int evalIdentifier(Entry* table, Identifier* id){
-    i32* ptr = (i32*)get(table, id->data, id->length);
-    if(!ptr){
-        printf("Unknown Identifier: ");
-        for(int i = 0; i < id->length; i++)
-            putchar(id->data[i]);
-        putchar('\n');
-        return 0;
-    }
-    return *ptr;
-}
-static int evalDecl(Entry* table, Binary* decl){
-    Identifier* id = decl->lhs;
-    int value;
-    if(decl->rhs)
-        value = evalNode(table, decl->rhs);
-    set(table, (Entry){id->data, id->length, value});
-    return 0xcafef00d;
-}
-static int evalNode(Entry* table, void* node){
-    char* type = node;
-    switch(*type){
-        case '+':
-        case '-':
-        case '*':
-        case '/':
-        case '%': return evalBinary(table, node);
-        case '=': return evalAssign(table, node);
-        case 'i': return evalIdentifier(table, node);
-        case 'd': return evalDecl(table, node);
-        case 'n': return ((Number*)node)->value;
-        case 'q': return printf("%d\n", evalNode(table, ((Quote*)node)->expr));
-        case 's': return evalNode(table, ((Binary*)node)->lhs), evalNode(table, ((Binary*)node)->rhs);
-    }
-    return 0;
-}
 
-void eval(void* tree){
-    Entry table[TABLE_SIZE];
-    clearTable(table);
-    evalNode(table, tree);
-}
 
 

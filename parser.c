@@ -337,5 +337,7 @@ void printTree(void* tree, int indent){
 
 void* parse(i8* source, i8* sourceEnd, i8* heap, i8* heapEnd){
     Parser p = {source, sourceEnd, heap,  heapEnd, 1};
-    return parseStatements(&p);
+    void* result =  parseStatements(&p);
+    printf("sizeof(Tree) = %d\n", p.begin - source);
+    return result;
 }

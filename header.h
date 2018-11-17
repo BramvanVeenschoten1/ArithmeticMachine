@@ -47,6 +47,7 @@ typedef union Word {
 void* parse(i8*, i8*, i8*, i8*);
 void printTree(void*, int);
 void assemble(u8* code, u8* codeEnd, void* tree);
+void printCode(u8*);
 void execute(u8*);
 
 #endif // PARSER_H_INCLUDED
