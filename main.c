@@ -33,5 +33,4 @@ int main()
         printCode(code);
     }
     execute(code);
-    printf("%d\n", sizeof(void*));
 }
