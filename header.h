@@ -6,14 +6,23 @@
 #define PUSH 2
 #define POP 3
 #define JMP 4
-#define GET 5
-#define PUT 6
-#define ADD 7
-#define SUB 8
-#define MUL 9
-#define DIV 10
-#define MOD 11
-#define OUT 12
+#define JMPIF 5
+#define GET 6
+#define PUT 7
+
+#define ADD 8
+#define SUB 9
+#define MUL 10
+#define DIV 11
+#define MOD 12
+#define OUT 13
+
+#define EQ 14
+#define LESS 15
+#define LOR 16
+#define LAND 17
+#define NOT 18
+#define TERN 19
 
 typedef unsigned char u8;
 typedef char i8;
@@ -34,18 +43,17 @@ typedef struct Number {
     i8 type;
     i32 value;
 } Number;
-typedef struct Quote {
+typedef struct Unary {
     i8 type;
     void* expr;
-} Quote;
+} Unary;
 
 typedef union Word {
     i32 integer;
     u8 bytes[sizeof(i32)];
 } Word;
 
-void* parse(i8*, i8*, i8*, i8*);
-void printTree(void*, int);
+void* parse(i8*, i8*, void*, void*);
 void assemble(u8* code, u8* codeEnd, void* tree);
 void printCode(u8*);
 void execute(u8*);

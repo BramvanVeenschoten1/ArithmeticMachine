@@ -96,40 +96,31 @@ static void* parseIdentifier(Parser* p){
     result->data = begin;
     return result;
 }
+static void* parseNeg(Parser* p){
+    skipWhite(p);
+    if(parseChar(p, '!')){
+        Unary* result = alloc(p, sizeof(Unary));
+        result->type = '!';
+        result->expr = parsePrimary(p);
+        return result;
+    }
+    return parsePrimary(p);
+}
 static void* parseMul(Parser* p){
-    Binary* result = parsePrimary(p);
+    Binary* result = parseNeg(p);
     if(!result)
         return result;
 
     while(1){
         skipWhite(p);
-        if(parseChar(p, '*')){
-            void* rhs = parsePrimary(p);
+        if(parseChar(p, '*') || parseChar(p, '/') || parseChar(p, '%')){
+            char type = p->begin[-1];
+            void* rhs = parseNeg(p);
             if(!rhs)
                 return rhs;
             void* lhs = result;
             result = alloc(p, sizeof(Binary));
-            result->type = '*';
-            result->lhs = lhs;
-            result->rhs = rhs;
-        }
-        else if(parseChar(p, '/')){
-            void* rhs = parsePrimary(p);
-            if(!rhs)
-                return rhs;
-            void* lhs = result;
-            result = alloc(p, sizeof(Binary));
-            result->type = '/';
-            result->lhs = lhs;
-            result->rhs = rhs;
-        }
-        else if(parseChar(p, '%')){
-            void* rhs = parsePrimary(p);
-            if(!rhs)
-                return rhs;
-            void* lhs = result;
-            result = alloc(p, sizeof(Binary));
-            result->type = '%';
+            result->type = type;
             result->lhs = lhs;
             result->rhs = rhs;
         }
@@ -143,33 +134,141 @@ static void* parseAdd(Parser* p){
 
     while(1){
         skipWhite(p);
-        if(parseChar(p, '+')){
+        if(parseChar(p, '+') || parseChar(p, '-')){
+            char type = p->begin[-1];
             void* rhs = parseMul(p);
             if(!rhs)
                 return rhs;
             void* lhs = result;
             result = alloc(p, sizeof(Binary));
-            result->type = '+';
-            result->lhs = lhs;
-            result->rhs = rhs;
-        }
-        else if(parseChar(p, '-')){
-            void* rhs = parseMul(p);
-            if(!rhs)
-                return rhs;
-            void* lhs = result;
-            result = alloc(p, sizeof(Binary));
-            result->type = '-';
+            result->type = type;
             result->lhs = lhs;
             result->rhs = rhs;
         }
         else return result;
     }
 }
+static void* parseCmp(Parser* p){
+    Binary* result = parseAdd(p);
+    if(!result)
+        return result;
+
+    while(1){
+        skipWhite(p);
+        if(     parseLiteral(p, "==") ||
+                parseLiteral(p, "!=") ||
+                parseLiteral(p, "<=") ||
+                parseLiteral(p, ">=") ){
+            char type = p->begin[-2];
+            void* rhs = parseAdd(p);
+            if(!rhs)
+                return rhs;
+            void* lhs = result;
+            result = alloc(p, sizeof(Binary));
+            switch(type){
+                case '=': {
+                    result->type = 'E';
+                    result->lhs = lhs;
+                    result->rhs = rhs;
+                    break;
+                }
+                case '!': {
+                    result->type = 'E';
+                    result->lhs = lhs;
+                    result->rhs = rhs;
+                    Unary* neg = alloc(p, sizeof(Unary));
+                    neg->type = '!';
+                    neg->expr = result;
+                    result = neg;
+                    break;
+                }
+                case '<': {
+                    result->type = '<';
+                    result->lhs = rhs;
+                    result->rhs = lhs;
+                    Unary* neg = alloc(p, sizeof(Unary));
+                    neg->type = '!';
+                    neg->expr = result;
+                    result = neg;
+                    break;
+                }
+                case '>': {
+                    result->type = '<';
+                    result->lhs = lhs;
+                    result->rhs = rhs;
+                    Unary* neg = alloc(p, sizeof(Unary));
+                    neg->type = '!';
+                    neg->expr = result;
+                    result = neg;
+                    break;
+                }
+            }
+        }
+        else if(parseChar(p, '<') || parseChar(p, '>')){
+            char c = p->begin[-1];
+            void* rhs = parseAdd(p);
+            if(!rhs)
+                return rhs;
+            void* lhs = result;
+            result = alloc(p, sizeof(Binary));
+            result->type = '<';
+            if(c == '<'){
+                result->lhs = lhs;
+                result->rhs = rhs;
+            }
+            else {
+                result->lhs = rhs;
+                result->rhs = lhs;
+            }
+        }
+        else return result;
+    }
+}
+static void* parseLand(Parser* p){
+    Binary* result = parseCmp(p);
+    if(!result)
+        return result;
+
+    while(1){
+        skipWhite(p);
+        if(parseLiteral(p, "&&")){
+            void* rhs = parseCmp(p);
+            if(!rhs)
+                return rhs;
+            void* lhs = result;
+            result = alloc(p, sizeof(Binary));
+            result->type = 'A';
+            result->lhs = lhs;
+            result->rhs = rhs;
+        }
+        else return result;
+    }
+}
+static void* parseLor(Parser* p){
+    Binary* result = parseLand(p);
+    if(!result)
+        return result;
+
+    while(1){
+        skipWhite(p);
+        if(parseLiteral(p, "||")){
+            void* rhs = parseLand(p);
+            if(!rhs)
+                return rhs;
+            void* lhs = result;
+            result = alloc(p, sizeof(Binary));
+            result->type = 'O';
+            result->lhs = lhs;
+            result->rhs = rhs;
+        }
+        else return result;
+    }
+}
+
 static void* parsePrimary(Parser* p){
     skipWhite(p);
     if(parseChar(p, '(')){
-        void* result = parseAdd(p);
+        void* result = parseLor(p);
         if(!result)
             return result;
         skipWhite(p);
@@ -200,7 +299,7 @@ static void* parseAssign(Parser* p){
         printf("(line %d) Expected \'=\' after identifier.\n", p->lineNo);
         return NULL;
     }
-    void* expr = parseAdd(p);
+    void* expr = parseLor(p);
     if(!expr)
         return expr;
     Binary* assign = alloc(p, sizeof(Binary));
@@ -227,7 +326,7 @@ static void* parseDecl(Parser* p){
 
     skipWhite(p);
     if(parseChar(p, '=')){
-        void* expr = parseAdd(p);
+        void* expr = parseLor(p);
         if(!expr)
             return expr;
         decl->rhs = expr;
@@ -247,7 +346,7 @@ static void* parseStatement(Parser* p){
     if(parseLiteral(p, "var"))
         return parseDecl(p);
     if(parseLiteral(p, ">>>")){
-        void* arg = parseAdd(p);
+        void* arg = parseLor(p);
         if(!arg)
             return arg;
         skipWhite(p);
@@ -255,7 +354,7 @@ static void* parseStatement(Parser* p){
             printf("(line %d) Expected \';\' after print\n", p->lineNo);
             return NULL;
         }
-        Quote* result = alloc(p, sizeof(Quote));
+        Unary* result = alloc(p, sizeof(Unary));
         result->type = 'q';
         result->expr = arg;
         return result;
@@ -286,58 +385,8 @@ static void* parseStatements(Parser* p){
     return result;
 }
 
-static void printIndent(int indent){
-    for(int i = 0; i < indent; i++){
-        printf("    ");
-    }
-}
-static void printBinary(Binary* b, char type, int indent){
-    printIndent(indent);
-    printf("{\n");
-    printTree(b->lhs, indent + 1);
-    printIndent(indent);
-    putchar(type);
-    putchar('\n');
-    printTree(b->rhs, indent + 1);
-    printIndent(indent);
-    printf("}\n");
-}
-static void printDecl(Binary* b, int indent){
-    printIndent(indent);
-    printf("var\n");
-    printTree(b->lhs, indent + 1);
-    if(b->rhs)
-        printTree(b->rhs, indent + 1);
-}
-static void printIdentifier(Identifier* id, int indent){
-    printIndent(indent);
-    for(int i = 0; i < id->length; i++){
-        putchar(id->data[i]);
-    }
-    putchar('\n');
-}
-
-void printTree(void* tree, int indent){
-    if(!tree) return;
-    char* type = tree;
-    switch(*type){
-        case '+':
-        case '-':
-        case '*':
-        case '/':
-        case '%':
-        case '=': return printBinary(tree, *type, indent);
-        case 'i': return printIdentifier(tree, indent);
-        case 'd': return printDecl(tree, indent);
-        case 'n': printIndent(indent); printf("%d\n", ((Number*)tree)->value); return;
-        case 'q': printIndent(indent); printf(">>>\n"); printTree(((Quote*)tree)->expr, indent + 1); return;
-        case 's': printTree(((Binary*)tree)->lhs, indent); printTree(((Binary*)tree)->rhs, indent); return;
-    }
-}
-
-void* parse(i8* source, i8* sourceEnd, i8* heap, i8* heapEnd){
+void* parse(i8* source, i8* sourceEnd, void* heap, void* heapEnd){
     Parser p = {source, sourceEnd, heap,  heapEnd, 1};
     void* result =  parseStatements(&p);
-    printf("sizeof(Tree) = %d\n", p.begin - source);
     return result;
 }

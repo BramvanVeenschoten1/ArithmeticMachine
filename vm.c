@@ -2,8 +2,13 @@
 #include <stdlib.h>
 #include "header.h"
 
+#define STACK_SIZE 1024
+
 void printCode(u8* ops){
+    int i = 0;
     while(*ops){
+        printf("%d:\t", i);
+        i++;
         switch(*ops){
             case LOAD: {
                 Word w;
@@ -25,6 +30,7 @@ void printCode(u8* ops){
             case MUL:  printf("MUL\n"); break;
             case DIV:  printf("DIV\n"); break;
             case MOD:  printf("MOD\n"); break;
+            default:   printf("OTHER\n");break;
         }
         ops++;
     }
@@ -46,19 +52,25 @@ void execute(u8* ops){
             }
             case PUSH: if(ptr >= stack + 1024)
                 { printf("Stack overflow!\n"); exit(0xdeadbeef);}
-                      ptr++;                  break;
+                            ptr++;                  break;
             case POP: if(ptr <= stack)
                 {printf("Stack underflow!\n"); exit(0xdeadbeef);}
-                      ptr--;                  break;
-            case GET: *ptr = ptr[- *ptr];     break;
-            case PUT: ptr[- ptr[-1]] = *ptr;  break;
-            case JMP: ops += *ptr;            break;
-            case OUT: printf("%d\n", *ptr);   break;
-            case ADD: ptr[-1] += *ptr;        break;
-            case SUB: ptr[-1] -= *ptr;        break;
-            case MUL: ptr[-1] *= *ptr;        break;
-            case DIV: ptr[-1] /= *ptr;        break;
-            case MOD: ptr[-1] %= *ptr;        break;
+                            ptr--;                  break;
+            case GET:       *ptr = ptr[- *ptr];     break;
+            case PUT:       ptr[- ptr[-1]] = *ptr;  break;
+            case JMP:       ops += *ptr;            break;
+            case JMPIF:     if(ptr[-1])ops += *ptr; break;
+            case OUT:       printf("%d\n", *ptr);   break;
+            case ADD:       ptr[-1] += *ptr;        break;
+            case SUB:       ptr[-1] -= *ptr;        break;
+            case MUL:       ptr[-1] *= *ptr;        break;
+            case DIV:       ptr[-1] /= *ptr;        break;
+            case MOD:       ptr[-1] %= *ptr;        break;
+            case EQ:      ptr[-1] = (ptr[-1] == *ptr); break;
+            case LESS:    ptr[-1] = (ptr[-1] <  *ptr); break;
+            case LOR:     ptr[-1] = (ptr[-1] || *ptr); break;
+            case LAND:    ptr[-1] = (ptr[-1] && *ptr); break;
+            case NOT:     *ptr = !*ptr;                break;
         }
         ops++;
     }

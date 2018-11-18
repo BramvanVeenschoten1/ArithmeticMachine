@@ -82,11 +82,15 @@ static void assembleBinary(Assembler* a, Binary* b){
     a->stackCounter++;
     assembleNode(a, b->rhs);
     switch(b->type){
-        case '+': *a->code = ADD; a->code++; break;
-        case '-': *a->code = SUB; a->code++; break;
-        case '*': *a->code = MUL; a->code++; break;
-        case '/': *a->code = DIV; a->code++; break;
-        case '%': *a->code = MOD; a->code++; break;
+        case '+': *a->code = ADD;  a->code++; break;
+        case '-': *a->code = SUB;  a->code++; break;
+        case '*': *a->code = MUL;  a->code++; break;
+        case '/': *a->code = DIV;  a->code++; break;
+        case '%': *a->code = MOD;  a->code++; break;
+        case '<': *a->code = LESS; a->code++; break;
+        case 'E': *a->code = EQ;   a->code++; break;
+        case 'O': *a->code = LOR;  a->code++; break;
+        case 'A': *a->code = LAND; a->code++; break;
     }
     *a->code = POP; a->code++;
     a->stackCounter--;
@@ -151,9 +155,15 @@ static void assembleIdentifier(Assembler* a, Identifier* id){
     *a->code = w.bytes[3];   a->code++;
     *a->code = GET;          a->code++;
 }
-static void assembleQuote(Assembler* a, Quote* q){
+static void assembleUnary(Assembler* a, Unary* q){
     assembleNode(a, q->expr);
-    *a->code = OUT; a->code++;
+    if(q->type == 'q'){
+        *a->code = OUT; a->code++;
+    }
+    else {
+        *a->code = NOT; a->code++;
+    }
+
 }
 static void assembleNode(Assembler* a, void* node){
     if(!node)
@@ -164,12 +174,17 @@ static void assembleNode(Assembler* a, void* node){
         case '-':
         case '*':
         case '/':
-        case '%': return assembleBinary(a, node);
+        case '%':
+        case '<':
+        case 'E':
+        case 'O':
+        case 'A': return assembleBinary(a, node);
         case '=': return assembleAssign(a, node);
         case 'i': return assembleIdentifier(a, node);
         case 'd': return assembleDecl(a, node);
         case 'n': return assembleNumber(a, node);
-        case 'q': return assembleQuote(a, node);
+        case '!':
+        case 'q': return assembleUnary(a, node);
         case 's': return assembleNode(a, ((Binary*)node)->lhs), assembleNode(a, ((Binary*)node)->rhs);
     }
 }
@@ -181,7 +196,6 @@ void assemble(u8* code, u8* codeEnd, void* tree){
     a.stackCounter = 0;
     clearTable(a.table);
     assembleNode(&a, tree);
-    printf("sizeof(Code) = %d\n", a.code - code);
 }
 
 
